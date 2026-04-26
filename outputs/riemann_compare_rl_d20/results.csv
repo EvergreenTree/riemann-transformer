@@ -1,0 +1,54 @@
+prompt_index,prompt,method,candidate_index,selected_by_riemann,nll,perplexity,work,mean_curvature,nll_tokens,continuation_tokens,continuation_text
+0,Explain why the sky is blue in two concise sentences.,vanilla,0,False,1.4318195581436157,4.186309499666667,251.06564729568768,0.7534793798088393,32,1342 309 3774 897 1300 414 9721 4964 590 43316 751 261 2226 567 5595 288 623 281 261 781 11501 283 261 4608 44 3190 257 50247 355 50247 4762 5415,"It is blue because light from distant stars scatters off the Earth's dust and some of the water vapor in the atmosphere, creating a hazy or hazy-like appearance"
+0,Explain why the sky is blue in two concise sentences.,candidate,1,False,1.2087270021438599,3.349218389823513,309.90534324914626,0.7564931133429287,32,449 5732 309 3774 897 356 9872 7197 283 257 900 332 2795 5200 287 8161 414 261 2226 287 660 3267 46 45675 11766 261 4608 288 4186 9671 403 261,The sky is blue because it reflects sunlight in a way that allows colors to transmit from the Earth to our eyes. Sunlight enters the atmosphere and gets absorbed by the
+0,Explain why the sky is blue in two concise sentences.,riemann,2,True,0.8913523554801941,2.438425039985025,216.39569179709164,0.7623429995926371,30,449 5732 309 3774 897 356 511 257 825 5524 281 5595 288 7722 332 8343 288 2969 500 261 5200 281 261 13181 7185 44 1195 5242 1300 46,"The sky is blue because it has a high concentration of dust and gases that absorb and reflect all the colors of the electromagnetic spectrum, including visible light."
+1,What is 17 * 23? Show the arithmetic briefly.,vanilla,0,False,1.0434150695800781,2.8388955042645105,426.8634181570436,0.7126371481055541,32,1185 309 32 1334 52 498 616 32 2573 44 492 1451 32 1185 3736 32 2573 2286 32 3383 307 2573 309 32 737 52 498 616 32 1185 44 492,"17 is 144 more than 23, which means 17 + 23 = 31.
+23 is 104 more than 17, which"
+1,What is 17 * 23? Show the arithmetic briefly.,candidate,1,False,0.9926337599754333,2.6983318803188516,362.61581183153476,0.7273391915634677,32,1185 309 257 2916 281 32 2573 46 20405 32 1185 287 32 2573 1783 283 32 2221 46 648 309 897 32 2573 309 257 2916 281 32 51 372 51,17 is a multiple of 23. Adding 17 to 23 results in 24. This is because 23 is a multiple of 3 (3
+1,What is 17 * 23? Show the arithmetic briefly.,riemann,2,True,1.2083165645599365,3.347844026783979,325.82862413140026,0.7200570451267235,32,2225 1006 32 1185 44 384 400 1499 895 17023 44 492 3336 462 32 1185 5601 32 2573 2286 32 4204 51 307 1560 919 17485 32 4204 51 414 32,"To find 17, we can perform long multiplication, which gives us 17 * 23 = 343.
+We then subtract 343 from "
+2,Write a Python function that returns the factorial of n.,vanilla+riemann,0,True,0.23860332369804382,1.2694748660980582,306.1466348398307,0.7542339377443467,32,32494 96 112 7976 10 18913 60149 26227 10820 52727 32 4387 6879 711 306 309 257 2555 19229 10 52727 32 711 434 309 259 21747 26227 44 478 10820 52727,"```python
+def factorial(n):
+    # Check if n is a positive integer
+    if not isinstance(n, int):
+  "
+2,Write a Python function that returns the factorial of n.,candidate,1,False,0.39841538667678833,1.4894626043460129,343.52502710562567,0.7510744123576363,32,18913 60149 26227 10820 52727 32 60420 5959 52727 32 50517 261 60149 281 306 307 52727 32 60420 5959 52727 32 4387 14915 1951 58 60149 281 32 48 355 32,"def factorial(n):
+    """"""
+    Returns the factorial of n.
+    """"""
+    # Base cases: factorial of 0 or "
+2,Write a Python function that returns the factorial of n.,candidate,2,False,0.13846620917320251,1.1485108717825316,404.87407599222615,0.7479279859424159,32,32494 96 112 7976 10 18913 60149 26227 10820 52727 32 711 306 39088 32 48 355 32 49 830 52727 52727 52727 32 2335 32 49 10 52727 32 3318 830,"```python
+def factorial(n):
+    if n == 0 or 1:
+        return 1
+    else:
+"
+3,A train leaves Paris at 9:00 and travels 120 km/h for 2.5 hours. How far does it go?,vanilla+riemann,0,True,1.1650030612945557,3.205932697492105,391.2590717895348,0.6765071870302378,32,449 6727 309 32 1334 48 47 1036 61 65532 1334 48 47 1036 65533 65534 1206 46 5168 5168 5168 5168 5168 5168 5168 54 65535 1206 46 5168 5168 5168,The trip is 140/12=<|python_start|>140/12<|python_end|><|output_start|>11.666666666666666<|output_end|>11.666666
+3,A train leaves Paris at 9:00 and travels 120 km/h for 2.5 hours. How far does it go?,candidate,1,False,0.6486568450927734,1.9129696880562526,463.023971838516,0.6691152446957842,32,449 5303 12173 327 32 50 46 53 2436 3736 32 52 46 53 2436 2286 32 65532 50 46 53 43 52 46 53 65533 65534 55 46 48 65535 55,The train travels for 2.5 hours + 4.5 hours = <|python_start|>2.5+4.5<|python_end|><|output_start|>7.0<|output_end|>7
+3,A train leaves Paris at 9:00 and travels 120 km/h for 2.5 hours. How far does it go?,candidate,2,False,1.3818193674087524,3.9821400166167913,463.051193210935,0.6672306012412285,32,4060 32 50 2436 356 3115 6428 408 32 49 46 53 42 737 848 2286 32 65532 50 46 53 42 737 848 65533 65534 1774 848 46 48 65535 1774,After 2 hours it leaves Paris at 1.5*1000 = <|python_start|>2.5*1000<|python_end|><|output_start|>2500.0<|output_end|>25
+4,Give three practical tips for debugging a memory leak.,vanilla+riemann,0,True,0.8874125480651855,2.4288370148200427,260.9359850825739,0.769465539609921,32,13733 1132 1825 287 43907 257 3231 10303 1351 830 10 49 46 42635 8185 2782 7602 9604 58 513 668 5817 4563 44 1195 340 288 340 47299 348 400 650,"Three common ways to debug a memory leak include:
+
+1. **Use print statements**: In most programming languages, including C and C++, you can use"
+4,Give three practical tips for debugging a memory leak.,candidate,1,False,0.9585279822349548,2.607854837988819,263.90314224493136,0.7840550183801595,32,49 46 15648 261 3822 1412 281 261 3231 10303 58 6937 257 2168 6158 283 3231 18789 44 713 343 351 561 6188 1192 470 3231 6158 44 400 1412 257,"1. Identify the root cause of the memory leak: Sometimes a simple error in memory allocation, such as an out-of-bag memory error, can cause a"
+4,Give three practical tips for debugging a memory leak.,candidate,2,False,0.9956173896789551,2.706394725758187,269.32873892033393,0.7691779867521886,32,30761 18701 257 3231 10303 400 311 6317 1683 287 641 9044 44 541 1476 345 1156 4818 4814 332 345 3475 725 288 3574 830 10 49 46 42635 8185 13409,"Debugging a memory leak can be challenging due to its complexity, but here are three practical tips that are commonly used and successful:
+
+1. **Use Deb"
+5,Summarize photosynthesis for a curious middle school student.,vanilla,0,False,1.1487442255020142,3.1542294207191044,254.05300357178265,0.808830772996254,32,15739 13853 309 257 934 283 492 1790 288 534 6395 650 7197 288 781 287 829 957 288 2297 4043 46 1495 485 1623 637 2470 353 781 485 1118 287,Photosynthesis is a process in which plants and other organisms use sunlight and water to make food and produce oxygen. When they come into contact with water they start to
+5,Summarize photosynthesis for a curious middle school student.,riemann,1,True,0.7368353605270386,2.0893131185071963,197.77120030116652,0.8575646422450174,25,15739 13853 309 261 934 403 492 1790 288 534 6395 4619 1300 1241 637 2301 1241 44 492 309 5656 283 957 5910 46,"Photosynthesis is the process by which plants and other organisms transform light energy into chemical energy, which is stored in food molecules."
+5,Summarize photosynthesis for a curious middle school student.,candidate,2,False,1.5334398746490479,4.6340901258689025,258.296437639104,0.8078090271393881,32,15739 13853 5664 6755 44 492 309 725 403 1790 327 1241 288 2013 403 2150 46 11616 8343 1241 414 261 2086 741 472 3115 288 8279 356 287 957 741,"Photosynthesis creates glucose, which is used by plants for energy and growth by animals. Plants absorb energy from the sun through their leaves and convert it to food through"
+6,"If all bloops are razzes and all razzes are lazzes, are all bloops lazzes?",vanilla,0,False,1.354109525680542,3.873310337130659,889.6509753469152,0.7559256934002273,32,6227 567 2450 1127 442 1592 637 23475 2245 46 1559 1118 44 384 674 332 500 304 10496 269 345 304 10496 269 13176 288 10109 44 2529 4271 937 304,"Let's break down this problem into manageable parts. To start, we know that all lazzes are lazzes strictly and consistently, meaning exactly every l"
+6,"If all bloops are razzes and all razzes are lazzes, are all bloops lazzes?",riemann,1,True,0.3452907204627991,1.4124004737059108,718.2701544747491,0.8426332303545497,11,5229 44 500 9530 2932 345 434 304 10496 269 46,"No, all bloops are not lazzes."
+6,"If all bloops are razzes and all razzes are lazzes, are all bloops lazzes?",candidate,2,False,1.4212688207626343,4.142373036160194,919.2215714530116,0.7386524818433832,32,1573 500 2011 44 414 429 10496 115 287 446 10496 269 44 345 304 10496 269 44 919 959 1274 1200 432 257 1132 15968 353 429 10496 269 46 648,"If all products, from Razzs to Lazzes, are lazzes, then each product must have a common ancestor with Razzes. This"
+7,Draft a polite one-paragraph email asking to reschedule a meeting.,vanilla+riemann,0,True,1.139723539352417,3.1259040562582823,350.20661029925856,0.7509851970492316,32,30238 1844 6691 50217 10304 93 2186 10 73 4469 287 1808 348 257 2202 9958 331 1045 1280 288 930 711 348 1268 311 1571 287 2220 327 257 3964 46,"Hi [Recipient Name],
+
+I wanted to give you a quick update on my project and see if you might be available to meet for a moment."
+7,Draft a polite one-paragraph email asking to reschedule a meeting.,candidate,1,False,0.9233818054199219,2.5177906868510185,460.925832633769,0.7759423529503578,32,36174 58 36726 287 514 4479 6658 257 4750 1683 287 257 2378 4799 46 12171 10 35499 5535 46 6084 2186 10 73 3422 442 4500 7688 348 800 46 338,"Subject: Request to reschedule a meeting due to a personal emergency. 
+
+Dear Mr. Smith,
+
+I hope this message finds you well. I"
+7,Draft a polite one-paragraph email asking to reschedule a meeting.,candidate,2,False,0.6602841019630432,1.935342090792053,513.4894412557042,0.7565203127213095,32,35499 1844 6691 50217 93 2186 10 28578 1844 6691 50217 567 10304 93 2186 10 73 3422 442 4500 7688 348 800 46 338 753 2172 287 1877 327 468 514,"Dear [Recipient],
+
+Hello [Recipient's Name],
+
+I hope this message finds you well. I am writing to ask for your res"

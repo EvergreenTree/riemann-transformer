@@ -79,7 +79,7 @@ class CausalSelfAttention(nn.Module):
         self.ve_gate_channels = 12
         self.ve_gate = Linear(self.ve_gate_channels, self.n_kv_head, bias=False) if has_ve(layer_idx, config.n_layer) else None
 
-    def forward(self, x, ve, cos_sin, window_size, kv_cache):
+    def forward(self, x, ve, cos_sin, window_size, kv_cache, return_attn_weights=False):
         B, T, C = x.size()
 
         # Project the input to get queries, keys, and values
@@ -101,28 +101,58 @@ class CausalSelfAttention(nn.Module):
         q = q * 1.2  # sharper attention (split scale between Q and K), TODO think through better
         k = k * 1.2
 
-        # Flash Attention (FA3 on Hopper+, PyTorch SDPA fallback elsewhere)
-        # window_size is (left, right) tuple: (N, 0) for causal, (-1, 0) for full context
-        if kv_cache is None:
-            # Training: causal attention with optional sliding window
-            y = flash_attn.flash_attn_func(q, k, v, causal=True, window_size=window_size)
+        attn_weights = None
+
+        if return_attn_weights and kv_cache is None:
+            # Manual attention to extract weights (slower, used by RiemannInfer)
+            # Transpose to (B, H, T, D) for matmul
+            q_t = q.transpose(1, 2)  # (B, H, T, D)
+            k_t = k.transpose(1, 2)  # (B, H_kv, T, D)
+            v_t = v.transpose(1, 2)  # (B, H_kv, T, D)
+            # GQA: expand k, v heads to match q heads
+            if self.n_kv_head != self.n_head:
+                rep = self.n_head // self.n_kv_head
+                k_t = k_t.repeat_interleave(rep, dim=1)
+                v_t = v_t.repeat_interleave(rep, dim=1)
+            # Compute attention scores
+            scale = self.head_dim ** -0.5
+            scores = torch.matmul(q_t, k_t.transpose(-2, -1)) * scale  # (B, H, T, T)
+            # Causal mask
+            causal_mask = torch.triu(torch.ones(T, T, device=x.device, dtype=torch.bool), diagonal=1)
+            scores = scores.masked_fill(causal_mask.unsqueeze(0).unsqueeze(0), float('-inf'))
+            # Sliding window mask
+            window = window_size[0]
+            if window >= 0 and window < T:
+                dist_mask = (torch.arange(T, device=x.device).unsqueeze(1) - torch.arange(T, device=x.device).unsqueeze(0)) > window
+                scores = scores.masked_fill(dist_mask.unsqueeze(0).unsqueeze(0), float('-inf'))
+            attn_weights = F.softmax(scores.float(), dim=-1).to(q.dtype)  # (B, H, T, T)
+            y = torch.matmul(attn_weights, v_t)  # (B, H, T, D)
+            y = y.transpose(1, 2)  # (B, T, H, D)
         else:
-            # Inference: use flash_attn_with_kvcache which handles cache management
-            k_cache, v_cache = kv_cache.get_layer_cache(self.layer_idx)
-            y = flash_attn.flash_attn_with_kvcache(
-                q, k_cache, v_cache,
-                k=k, v=v,
-                cache_seqlens=kv_cache.cache_seqlens,
-                causal=True,
-                window_size=window_size,
-            )
-            # Advance position after last layer processes
-            if self.layer_idx == kv_cache.n_layers - 1:
-                kv_cache.advance(T)
+            # Flash Attention (FA3 on Hopper+, PyTorch SDPA fallback elsewhere)
+            # window_size is (left, right) tuple: (N, 0) for causal, (-1, 0) for full context
+            if kv_cache is None:
+                # Training: causal attention with optional sliding window
+                y = flash_attn.flash_attn_func(q, k, v, causal=True, window_size=window_size)
+            else:
+                # Inference: use flash_attn_with_kvcache which handles cache management
+                k_cache, v_cache = kv_cache.get_layer_cache(self.layer_idx)
+                y = flash_attn.flash_attn_with_kvcache(
+                    q, k_cache, v_cache,
+                    k=k, v=v,
+                    cache_seqlens=kv_cache.cache_seqlens,
+                    causal=True,
+                    window_size=window_size,
+                )
+                # Advance position after last layer processes
+                if self.layer_idx == kv_cache.n_layers - 1:
+                    kv_cache.advance(T)
 
         # Re-assemble the heads and project back to residual stream
         y = y.contiguous().view(B, T, -1)
         y = self.c_proj(y)
+        if return_attn_weights:
+            return y, attn_weights
         return y
 
 
@@ -145,10 +175,16 @@ class Block(nn.Module):
         self.attn = CausalSelfAttention(config, layer_idx)
         self.mlp = MLP(config)
 
-    def forward(self, x, ve, cos_sin, window_size, kv_cache):
-        x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache)
-        x = x + self.mlp(norm(x))
-        return x
+    def forward(self, x, ve, cos_sin, window_size, kv_cache, return_attn_weights=False):
+        if return_attn_weights:
+            attn_out, attn_w = self.attn(norm(x), ve, cos_sin, window_size, kv_cache, return_attn_weights=True)
+            x = x + attn_out
+            x = x + self.mlp(norm(x))
+            return x, attn_w
+        else:
+            x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache)
+            x = x + self.mlp(norm(x))
+            return x
 
 
 class GPT(nn.Module):
@@ -474,6 +510,60 @@ class GPT(nn.Module):
         else:
             # inference: just return the logits directly
             return logits
+
+    @torch.inference_mode()
+    def forward_with_intermediates(self, idx):
+        """
+        Forward pass that returns hidden states and attention weights at every layer.
+        Used by RiemannInfer for manifold construction.
+
+        Returns:
+            logits: (B, T, vocab_size)
+            hidden_states: list of (B, T, n_embd) tensors, one per layer (L+1 entries: input + each layer output)
+            attn_weights: list of (B, H, T, T) tensors, one per layer
+        """
+        B, T = idx.size()
+        assert T <= self.cos.size(1)
+        cos_sin = self.cos[:, :T], self.sin[:, :T]
+
+        # Embed the tokens
+        x = self.transformer.wte(idx)
+        x = x.to(COMPUTE_DTYPE)
+        x = norm(x)
+
+        # Smear
+        if T > 1:
+            gate = self.smear_lambda.to(x.dtype) * torch.sigmoid(self.smear_gate(x[:, 1:, :24]))
+            x = torch.cat([x[:, :1], x[:, 1:] + gate * x[:, :-1]], dim=1)
+
+        x0 = x
+        n_layer = self.config.n_layer
+        backout_layer = n_layer // 2
+        x_backout = None
+
+        hidden_states = [x.detach().float()]  # layer 0 input
+        all_attn_weights = []
+
+        for i, block in enumerate(self.transformer.h):
+            x = self.resid_lambdas[i] * x + self.x0_lambdas[i] * x0
+            ve = self.value_embeds[str(i)](idx).to(x.dtype) if str(i) in self.value_embeds else None
+            x, attn_w = block(x, ve, cos_sin, self.window_sizes[i], None, return_attn_weights=True)
+            if i == backout_layer:
+                x_backout = x
+            hidden_states.append(x.detach().float())
+            all_attn_weights.append(attn_w.detach().float())
+
+        if x_backout is not None:
+            x = x - self.backout_lambda.to(x.dtype) * x_backout
+        x = norm(x)
+
+        softcap = 15
+        logits = self.lm_head(x)
+        logits = logits[..., :self.config.vocab_size]
+        logits = logits.float()
+        logits = softcap * torch.tanh(logits / softcap)
+
+        return logits, hidden_states, all_attn_weights
 
     @torch.inference_mode()
     def generate(self, tokens, max_tokens, temperature=1.0, top_k=None, seed=42):

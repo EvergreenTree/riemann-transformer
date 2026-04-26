@@ -7,6 +7,7 @@ import glob
 import json
 import logging
 import torch
+from dataclasses import fields
 
 from nanochat.common import get_base_dir
 from nanochat.gpt import GPT, GPTConfig
@@ -27,17 +28,62 @@ def _patch_missing_config_keys(model_config_kwargs):
         model_config_kwargs["window_pattern"] = "L"
         log0(f"Patching missing window_pattern in model config to 'L'")
 
-def _patch_missing_keys(model_data, model_config):
+def _filter_model_config_keys(model_config_kwargs):
+    """Keep only GPTConfig fields from checkpoint metadata.
+
+    Some chat checkpoints include tokenizer/chat-template metadata alongside
+    architecture metadata. GPTConfig should only receive model architecture keys.
+    """
+    valid_keys = {field.name for field in fields(GPTConfig)}
+    ignored_keys = sorted(set(model_config_kwargs) - valid_keys)
+    if ignored_keys:
+        log0(f"Ignoring non-GPTConfig metadata keys: {ignored_keys}")
+    return {k: v for k, v in model_config_kwargs.items() if k in valid_keys}
+
+def _patch_missing_keys(model_data, model_config, device=None):
     """Add default values for new parameters that may be missing in old checkpoints."""
     n_layer = model_config.n_layer
+    n_embd = model_config.n_embd
+    n_head = model_config.n_head
+    n_kv_head = model_config.n_kv_head
+    head_dim = n_embd // n_head
+    kv_dim = n_kv_head * head_dim
+    # Determine padded vocab size (must match GPT.__init__ logic)
+    pad_to = 64
+    padded_vocab_size = ((model_config.vocab_size + pad_to - 1) // pad_to) * pad_to
+
     # resid_lambdas defaults to 1.0 (identity scaling)
     if "resid_lambdas" not in model_data:
-        model_data["resid_lambdas"] = torch.ones(n_layer)
+        model_data["resid_lambdas"] = torch.ones(n_layer, device=device)
         log0(f"Patching missing resid_lambdas in model data to 1.0")
     # x0_lambdas defaults to 0.0 (disabled)
     if "x0_lambdas" not in model_data:
-        model_data["x0_lambdas"] = torch.zeros(n_layer)
+        model_data["x0_lambdas"] = torch.zeros(n_layer, device=device)
         log0(f"Patching missing x0_lambdas in model data to 0.0")
+    # smear_lambda defaults to 0.0 (disabled)
+    if "smear_lambda" not in model_data:
+        model_data["smear_lambda"] = torch.zeros(1, device=device)
+        log0(f"Patching missing smear_lambda in model data to 0.0")
+    # backout_lambda defaults to 0.0 (disabled - no subtraction)
+    if "backout_lambda" not in model_data:
+        model_data["backout_lambda"] = torch.zeros(1, device=device)
+        log0(f"Patching missing backout_lambda in model data to 0.0")
+    # smear_gate: Linear(24, 1) weight, defaults to zeros (gate ≈ 0)
+    if "smear_gate.weight" not in model_data:
+        model_data["smear_gate.weight"] = torch.zeros(1, 24, device=device)
+        log0(f"Patching missing smear_gate.weight in model data to zeros")
+    # Value embeddings and ve_gate (alternating layers)
+    from nanochat.gpt import has_ve
+    for i in range(n_layer):
+        if has_ve(i, n_layer):
+            ve_key = f"value_embeds.{i}.weight"
+            if ve_key not in model_data:
+                model_data[ve_key] = torch.zeros(padded_vocab_size, kv_dim, device=device)
+                log0(f"Patching missing {ve_key} in model data to zeros")
+            gate_key = f"transformer.h.{i}.attn.ve_gate.weight"
+            if gate_key not in model_data:
+                model_data[gate_key] = torch.zeros(n_kv_head, 12, device=device)
+                log0(f"Patching missing {gate_key} in model data to zeros")
 
 def save_checkpoint(checkpoint_dir, step, model_data, optimizer_data, meta_data, rank=0):
     if rank == 0:
@@ -92,11 +138,11 @@ def build_model(checkpoint_dir, step, device, phase):
         }
     # Hack: fix torch compile issue, which prepends all keys with _orig_mod.
     model_data = {k.removeprefix("_orig_mod."): v for k, v in model_data.items()}
-    model_config_kwargs = meta_data["model_config"]
+    model_config_kwargs = _filter_model_config_keys(meta_data["model_config"])
     _patch_missing_config_keys(model_config_kwargs)
     log0(f"Building model with config: {model_config_kwargs}")
     model_config = GPTConfig(**model_config_kwargs)
-    _patch_missing_keys(model_data, model_config)
+    _patch_missing_keys(model_data, model_config, device=device)
     with torch.device("meta"):
         model = GPT(model_config)
     # Load the model state
